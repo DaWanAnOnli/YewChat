@@ -9,6 +9,7 @@ use crate::{services::websocket::WebsocketService, User};
 pub enum Msg {
     HandleMsg(String),
     SubmitMessage,
+    ToggleDarkMode,
 }
 
 #[derive(Deserialize)]
@@ -40,12 +41,20 @@ struct UserProfile {
 }
 
 pub struct Chat {
+    dark_mode: bool,
     users: Vec<UserProfile>,
     chat_input: NodeRef,
     _producer: Box<dyn Bridge<EventBus>>,
     wss: WebsocketService,
     messages: Vec<MessageData>,
 }
+
+impl Chat {
+    fn toggle_dark_mode(&mut self) {
+        self.dark_mode = !self.dark_mode;
+    }
+}
+
 impl Component for Chat {
     type Message = Msg;
     type Properties = ();
@@ -78,11 +87,16 @@ impl Component for Chat {
             chat_input: NodeRef::default(),
             wss,
             _producer: EventBus::bridge(ctx.link().callback(Msg::HandleMsg)),
+            dark_mode: false,
         }
     }
 
     fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
+            Msg::ToggleDarkMode => {
+                self.toggle_dark_mode();
+                true // Signal that the component should be re-rendered
+            }
             Msg::HandleMsg(s) => {
                 let msg: WebSocketMessage = serde_json::from_str(&s).unwrap();
                 match msg.message_type {
@@ -135,11 +149,16 @@ impl Component for Chat {
         }
     }
 
+
     fn view(&self, ctx: &Context<Self>) -> Html {
+        let dark_mode_class = if self.dark_mode { "dark-mode" } else { "" };
+        let text_color_class = if self.dark_mode { "text-white" } else { "text-black" };
+
         let submit = ctx.link().callback(|_| Msg::SubmitMessage);
+        let toggle_dark_mode = ctx.link().callback(|_| Msg::ToggleDarkMode);
 
         html! {
-            <div class="flex w-screen">
+            <div class={format!("flex w-screen {}", dark_mode_class)}>
                 <div class="flex-none w-56 h-screen bg-gray-100">
                     <div class="text-xl p-3">{"Users"}</div>
                     {
@@ -163,8 +182,10 @@ impl Component for Chat {
                     }
                 </div>
                 <div class="grow h-screen flex flex-col">
-                    <div class="w-full h-14 border-b-2 border-gray-300"><div class="text-xl p-3">{"💬 Chat!"}</div></div>
-                    <div class="w-full grow overflow-auto border-b-2 border-gray-300">
+                <div class={format!("w-full h-14 border-b-2 border-gray-300 {}", dark_mode_class)}>
+                <div class={format!("text-xl p-3 {}", text_color_class)}>{"💬 Chat!"}</div>
+            </div>
+            <div class={format!("w-full grow overflow-auto border-b-2 border-gray-300 {}", dark_mode_class)}>
                         {
                             self.messages.iter().map(|m| {
                                 let user = self.users.iter().find(|u| u.name == m.from).unwrap();
@@ -189,16 +210,19 @@ impl Component for Chat {
                         }
 
                     </div>
-                    <div class="w-full h-14 flex px-3 items-center">
-                        <input ref={self.chat_input.clone()} type="text" placeholder="Message" class="block w-full py-2 pl-4 mx-3 bg-gray-100 rounded-full outline-none focus:text-gray-700" name="message" required=true />
-                        <button onclick={submit} class="p-3 shadow-sm bg-blue-600 w-10 h-10 rounded-full flex justify-center items-center color-white">
-                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" class="fill-white">
-                                <path d="M0 0h24v24H0z" fill="none"></path><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
-                            </svg>
-                        </button>
-                    </div>
+                    <div class={format!("w-full h-14 flex px-3 items-center {}", dark_mode_class)}>
+                    <input ref={self.chat_input.clone()} type="text" placeholder="Message" class={format!("block w-full py-2 pl-4 mx-3 bg-gray-100 rounded-full outline-none focus:text-gray-700 {}", text_color_class)} name="message" required=true />
+                    <button onclick={submit} class={format!("p-3 shadow-sm bg-blue-600 w-10 h-10 rounded-full flex justify-center items-center {}", text_color_class)}>
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" class="fill-white">
+                            <path d="M0 0h24v24H0z" fill="none"></path><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
+                        </svg>
+                    </button>
+                    <button onclick={toggle_dark_mode} class={format!("p-3 shadow-sm w-10 h-10 rounded-full flex justify-center items-center {}", text_color_class)}>
+                        {"Dark Mode"}
+                    </button>
                 </div>
             </div>
-        }
+        </div>
     }
+}
 }

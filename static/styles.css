@@ -1,0 +1,7 @@
+.dark-mode {
+    background-color: #333333;
+}
+
+.dark-mode .text-white {
+    color: #ffffff;
+}
